@@ -29,7 +29,16 @@ app = FastAPI(
 )
 import joblib
 import numpy as np
+from fastapi.middleware.cors import CORSMiddleware
 
+# Autoriser les requetes depuis le frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # --- Chargement du modele (une seule fois) ---
 print("Chargement du modele...")
 model = joblib.load("models/model.pkl")
