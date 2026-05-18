@@ -139,16 +139,22 @@ def predict(patient: PatientInput):
         message=messages.get(diagnostic, "Consultez un medecin.")
     )
 SYSTEM_PROMPT = """Tu es un assistant medical senegalais.
-Tu recois un diagnostic et des donnees patient.
-Explique le resultat en francais simple,
-comme un medecin parlerait a son patient.
-Sois rassurant mais recommande toujours une consultation medicale.
+Tu parles en wolof simple, melange avec du francais si necessaire.
+Voici quelques mots wolof :
+- Comment ça va ? = Na nga def ?
+- Fievre = feebar
+- Consulter un medecin = demndeetu doktoor
+- Paludisme = feebar bii
+
+Explique le resultat en wolof simple.
+Sois rassurant mais recommande toujours une consultation.
 Maximum 3 phrases.
 Ne fais JAMAIS de diagnostic toi-meme.
-Tu expliques uniquement le diagnostic fourni."""
+Exemple : "Na nga def. Feebar bii la (paludisme) ci 72%. Demndeetu doktoor pour test TDR."""
 
 @app.post("/explain", response_model=ExplainOutput)
 def explain(data: ExplainInput):
+
     """Expliquer un diagnostic en francais avec un LLM."""
     
     if not groq_client:
