@@ -113,7 +113,8 @@
 
   <script>
     const API_URL = "http://localhost:8000";
-const historique = [];
+    const historique = [];
+
     async function diagnostiquer() {
       const patient = {
         age: parseInt(document.getElementById("age").value),
@@ -147,6 +148,9 @@ const historique = [];
 
         const resultat = await response.json();
         afficherResultat(resultat);
+        
+        // 🔥 AJOUT : Appeler l'explication LLM APRÈS l'affichage du résultat
+        demanderExplication(resultat);
 
       } catch (error) {
         afficherErreur("Erreur de connexion : " + error.message);
@@ -170,33 +174,9 @@ const historique = [];
       };
       const c = couleurs[r.diagnostic] || couleurs["sain"];
       const pct = Math.round(r.probabilite * 100);
-// Ajouter a l'historique
-historique.unshift({ diagnostic: r.diagnostic, probabilite: Math.round(r.probabilite * 100), icone: c.icone });
-if (historique.length > 5) historique.pop();
-afficherHistorique();
-function afficherHistorique() {
-  const lignes = historique.map(h => `
-    <tr class="border-t border-gray-100">
-      <td class="py-2 px-3 text-sm">${h.icone} ${h.diagnostic}</td>
-      <td class="py-2 px-3 text-sm text-right">${h.probabilite}%</td>
-    </tr>`).join('');
-
-  document.getElementById("historique-section").innerHTML = `
-    <div class="bg-white rounded-xl shadow-md p-4 mt-6">
-      <h3 class="font-bold text-gray-800 mb-3">5 dernieres consultations</h3>
-      <table class="w-full">
-        <thead>
-          <tr class="text-left text-xs text-gray-500">
-            <th class="pb-2 px-3">Diagnostic</th>
-            <th class="pb-2 px-3 text-right">Probabilite</th>
-          </tr>
-        </thead>
-        <tbody>${lignes}</tbody>
-      </table>
-    </div>`;
-}
+      
       document.getElementById("result-section").innerHTML = `
-        <div class="bg-white rounded-xl shadow-md p-6">
+        <div class="bg-white rounded-xl shadow-md p-6" id="result-container">
           <h2 class="text-xl font-bold text-gray-800 mb-4">Resultat</h2>
           <div class="${c.bg} rounded-lg p-4 mb-4">
             <p class="text-sm text-gray-600">Diagnostic :</p>
@@ -218,6 +198,83 @@ function afficherHistorique() {
           <div class="bg-gray-50 rounded-lg p-3">
             <p class="text-sm text-gray-700">${r.message}</p>
           </div>
+        </div>`;
+      
+      // Ajouter a l'historique
+      historique.unshift({ diagnostic: r.diagnostic, probabilite: pct, icone: c.icone });
+      if (historique.length > 5) historique.pop();
+      afficherHistorique();
+    }
+
+    // 🔥 NOUVELLE FONCTION pour l'explication Llama 3
+    async function demanderExplication(diagnostic_data) {
+      const explainData = {
+        diagnostic: diagnostic_data.diagnostic,
+        probabilite: diagnostic_data.probabilite,
+        age: parseInt(document.getElementById("age").value),
+        sexe: document.getElementById("sexe").value,
+        temperature: parseFloat(document.getElementById("temperature").value),
+        region: document.getElementById("region").value
+      };
+      
+      // Créer la zone d'explication
+      const resultContainer = document.getElementById("result-container");
+      const explDiv = document.createElement("div");
+      explDiv.id = "explication-zone";
+      explDiv.innerHTML = `
+        <div class="mt-4 bg-purple-50 rounded-lg p-4 border border-purple-200">
+          <p class="text-sm text-purple-600 font-medium mb-2">🤖 Explication (Llama 3)</p>
+          <p class="text-gray-500 text-sm">Génération en cours...</p>
+        </div>`;
+      resultContainer.appendChild(explDiv);
+      
+      try {
+        const response = await fetch("http://localhost:8000/explain", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(explainData)
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          explDiv.innerHTML = `
+            <div class="mt-4 bg-purple-50 rounded-lg p-4 border border-purple-200">
+              <p class="text-sm text-purple-600 font-medium mb-2">🤖 Explication (Llama 3)</p>
+              <p class="text-gray-700 text-sm leading-relaxed">${result.explication}</p>
+            </div>`;
+        } else {
+          explDiv.innerHTML = `
+            <div class="mt-4 bg-gray-50 rounded-lg p-3">
+              <p class="text-gray-400 text-sm">❌ Explication non disponible.</p>
+            </div>`;
+        }
+      } catch (error) {
+        explDiv.innerHTML = `
+          <div class="mt-4 bg-gray-50 rounded-lg p-3">
+            <p class="text-gray-400 text-sm">❌ Erreur de connexion avec l'API.</p>
+          </div>`;
+      }
+    }
+
+    function afficherHistorique() {
+      const lignes = historique.map(h => `
+        <tr class="border-t border-gray-100">
+          <td class="py-2 px-3 text-sm">${h.icone} ${h.diagnostic}</td>
+          <td class="py-2 px-3 text-sm text-right">${h.probabilite}%</td>
+        </tr>`).join('');
+
+      document.getElementById("historique-section").innerHTML = `
+        <div class="bg-white rounded-xl shadow-md p-4 mt-6">
+          <h3 class="font-bold text-gray-800 mb-3">5 dernieres consultations</h3>
+          <table class="w-full">
+            <thead>
+              <tr class="text-left text-xs text-gray-500">
+                <th class="pb-2 px-3">Diagnostic</th>
+                <th class="pb-2 px-3 text-right">Probabilite</th>
+              </tr>
+            </thead>
+            <tbody>${lignes}</tbody>
+          </table>
         </div>`;
     }
 
