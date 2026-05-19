@@ -56,7 +56,8 @@ app = FastAPI(
 import joblib
 import numpy as np
 from fastapi.middleware.cors import CORSMiddleware
-
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 # Autoriser les requetes depuis le frontend
 app.add_middleware(
     CORSMiddleware,
@@ -188,3 +189,10 @@ def explain(data: ExplainInput):
     return ExplainOutput(explication=explication)
 def health_check():
     return {"status": "ok", "message": "SenSante API is running"}
+# Servir le frontend comme fichier statique
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
+@app.get("/")
+def serve_frontend():
+    """Servir la page d'accueil."""
+    return FileResponse("frontend/index.html")
