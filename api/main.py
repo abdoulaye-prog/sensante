@@ -4,6 +4,11 @@ from pydantic import BaseModel, Field
 import os
 from dotenv import load_dotenv
 from groq import Groq
+import joblib
+import numpy as np
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 # Charger les variables d'environnement
 load_dotenv()
@@ -17,6 +22,7 @@ if groq_api_key:
     print("✅ Client Groq initialise.")
 else:
     print("⚠️ ATTENTION : GROQ_API_KEY non trouvee. /explain sera desactive.")
+
 # --- Schemas Pydantic ---
 class PatientInput(BaseModel):
     """Donnees d'entree : les symptomes d'un patient."""
@@ -47,17 +53,14 @@ class ExplainInput(BaseModel):
 class ExplainOutput(BaseModel):
     explication: str
     modele_llm: str = "llama-3.1-8b-instant"
+
 # --- Application FastAPI ---
 app = FastAPI(
     title="SenSante API",
     description="Assistant pre-diagnostic medical pour le Senegal",
     version="0.2.0"
 )
-import joblib
-import numpy as np
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+
 # Autoriser les requetes depuis le frontend
 app.add_middleware(
     CORSMiddleware,
@@ -66,6 +69,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 # --- Chargement du modele (une seule fois) ---
 print("Chargement du modele...")
 model = joblib.load("models/model.pkl")
@@ -74,7 +78,11 @@ le_region = joblib.load("models/encoder_region.pkl")
 feature_cols = joblib.load("models/feature_cols.pkl")
 print(f"Modele charge : {type(model).__name__}")
 print(f"Classes : {list(model.classes_)}")
+
 @app.get("/health")
+def health():
+    return {"status": "ok"}
+
 @app.get("/model-info")
 def model_info():
     """Informations sur le modele charge."""
@@ -84,6 +92,7 @@ def model_info():
         "classes": list(model.classes_),
         "nombre_features": model.n_features_in_
     }
+
 @app.post("/predict", response_model=DiagnosticOutput)
 def predict(patient: PatientInput):
     """Predire un diagnostic a partir des symptomes d'un patient."""
@@ -139,6 +148,7 @@ def predict(patient: PatientInput):
         confiance=confiance,
         message=messages.get(diagnostic, "Consultez un medecin.")
     )
+
 SYSTEM_PROMPT = """Tu es un assistant medical senegalais.
 Tu parles en wolof simple, melange avec du francais si necessaire.
 Voici quelques mots wolof :
@@ -155,7 +165,6 @@ Exemple : "Na nga def. Feebar bii la (paludisme) ci 72%. Demndeetu doktoor pour 
 
 @app.post("/explain", response_model=ExplainOutput)
 def explain(data: ExplainInput):
-
     """Expliquer un diagnostic en francais avec un LLM."""
     
     if not groq_client:
@@ -187,8 +196,7 @@ def explain(data: ExplainInput):
         explication = f"Erreur lors de l'appel au LLM : {str(e)}"
     
     return ExplainOutput(explication=explication)
-def health_check():
-    return {"status": "ok", "message": "SenSante API is running"}
+
 # Servir le frontend comme fichier statique
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
